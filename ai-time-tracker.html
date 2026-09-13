@@ -777,7 +777,7 @@
     <!-- ============ Z.AI ============ -->
     <section class="card zai">
       <div class="card-head">
-        <h2><span class="provider-mark">ZA</span> Z.AI <span class="provider-location">Zhipu · Beijing (UTC+8)</span></h2>
+        <h2><span class="provider-mark">ZA</span> Z.AI <span class="provider-location">Zhipu · Singapore Time (UTC+8)</span></h2>
         <div class="clock" id="zai-time">--:--:--</div>
         <div class="date" id="zai-date"></div>
         <div class="meta-row">
@@ -790,8 +790,12 @@
       <div class="section-label">Campanhas e benefícios</div>
       <ul class="promos">
         <li>
+          <span class="badge hot">OFF-PEAK</span>
+          <span><strong>Desconto off-peak do GLM Coding Plan</strong> — segunda a sexta, 14:00–18:00 em Singapore é horário de pico; fora dessa janela, o consumo de modelos é cobrado a <strong>50% da taxa padrão</strong>. Fins de semana também ficam fora do pico.</span>
+        </li>
+        <li>
           <span class="badge hot">COTA ZERO</span>
-          <span><strong>Campanha GLM-5.3-Flash</strong> — até <strong>20/09/2026</strong>, todos os dias das 23:00 às 09:00 em Beijing (= <strong>12:00–22:00 no seu horário</strong>): <strong>cota zero e Flash ilimitado via ZCode</strong>; 2× cota via outros agentes. Requer ZCode ≥ 3.10.</span>
+          <span><strong>Campanha GLM-5.3-Flash</strong> — até <strong>20/09/2026</strong>, todos os dias das 23:00 às 09:00 em Singapore (= <strong>12:00–22:00 no seu horário</strong>): <strong>cota zero e Flash ilimitado via ZCode</strong>; 2× cota via outros agentes. Requer ZCode ≥ 3.10.</span>
         </li>
         <li>
           <span class="badge hot">~58% OFF</span>
@@ -807,7 +811,7 @@
         </li>
         <li class="expired">
           <span class="badge neutral">HISTÓRICO</span>
-          <span>Planos legados deixaram de ser vendidos em <strong>30/07/2026</strong> (os existentes foram mantidos). A cota consome 3× no pico para GLM-5.3 e 1,2× para Flash — pico = seg–sex, 14:00–18:00 em Beijing = <strong>03:00–07:00 no seu horário</strong>.</span>
+          <span>Planos legados deixaram de ser vendidos em <strong>30/07/2026</strong> (os existentes foram mantidos). Para o plano atual, o pico é seg–sex, 14:00–18:00 em Singapore = <strong>03:00–07:00 no seu horário</strong>.</span>
         </li>
       </ul>
     </section>
@@ -871,10 +875,11 @@
   <footer>
     ⚠️ Dados das campanhas consultados em <strong>12 de setembro de 2026</strong> em fontes oficiais — confirme os termos atuais antes de contratar:
     <a href="https://z.ai/subscribe" target="_blank" rel="noopener">z.ai/subscribe</a> ·
+    <a href="https://docs.z.ai/devpack/overview" target="_blank" rel="noopener">regras do GLM Coding Plan</a> ·
     <a href="https://docs.z.ai/devpack/notice/event-glm-5.3-flash" target="_blank" rel="noopener">campanha Flash</a> ·
     <a href="https://docs.z.ai/devpack/credit-campaign-rules" target="_blank" rel="noopener">regras de convite</a> ·
     <a href="https://api-docs.deepseek.com/quick_start/pricing/" target="_blank" rel="noopener">preços do DeepSeek</a>.
-    Picos do DeepSeek (fonte oficial): seg–sex, 09:00–12:00 e 14:00–18:00 em Beijing (UTC+8).
+    Picos do Z.AI (fonte oficial): seg–sex, 14:00–18:00 em Singapore (UTC+8). Picos do DeepSeek: seg–sex, 09:00–12:00 e 14:00–18:00 em Beijing (UTC+8).
   </footer>
 </div>
 
@@ -903,10 +908,11 @@
     return d;
   }
 
-  // Z.AI business hours: Mon–Fri 09:00–18:00 Beijing
-  function zaiBusiness(d) {
-    const day = d.getUTCDay(), h = d.getUTCHours();
-    return day >= 1 && day <= 5 && h >= 9 && h < 18;
+  // Z.AI peak: Mon–Fri 14:00–18:00 Singapore Time (UTC+8), official docs.
+  // All other hours are off-peak and use 50% of the standard credit rate.
+  function zaiPeak(d) {
+    const day = d.getUTCDay(), h = d.getUTCHours() + d.getUTCMinutes() / 60;
+    return day >= 1 && day <= 5 && h >= 14 && h < 18;
   }
 
   // DeepSeek peak: Mon–Fri 09:00–12:00 & 14:00–18:00 Beijing (official docs)
@@ -915,8 +921,8 @@
     return day >= 1 && day <= 5 && ((h >= 9 && h < 12) || (h >= 14 && h < 18));
   }
 
-  // GLM-5.3-Flash campaign: Sep 3–20, 2026, daily 23:00–09:00 Beijing.
-  // These timestamps represent Beijing wall-clock time, not the user's timezone.
+  // GLM-5.3-Flash campaign: Sep 3–20, 2026, daily 23:00–09:00 Singapore.
+  // These timestamps represent Singapore wall-clock time, not the user's timezone.
   const FLASH_START = Date.UTC(2026, 8, 3, 0, 0);
   const FLASH_END = Date.UTC(2026, 8, 20, 9, 0);
 
@@ -956,10 +962,11 @@
     return pad(t.getUTCHours()) + ':' + pad(t.getUTCMinutes());
   }
 
-  function minutesUntilFlip(cn) {
-    const cur = dsPeak(cn);
+  function minutesUntilFlip(cn, stateFn) {
+    const state = stateFn || dsPeak;
+    const cur = state(cn);
     for (let i = 1; i <= 7 * 24 * 60; i++) {
-      if (dsPeak(new Date(cn.getTime() + i * 60000)) !== cur) return i;
+      if (state(new Date(cn.getTime() + i * 60000)) !== cur) return i;
     }
     return null;
   }
@@ -970,24 +977,28 @@
 
     const zai = setClock('zai', 8);
     const zs = document.getElementById('zai-status');
-    if (zaiBusiness(zai)) {
-      zs.textContent = '🟢 Horário comercial · 09:00–18:00';
-      zs.className = 'pill open';
+    const zaiIsPeak = zaiPeak(zai);
+    const zaiFlipMins = minutesUntilFlip(zai, zaiPeak);
+    if (zaiIsPeak) {
+      zs.textContent = '🔥 PICO AGORA · tarifa padrão';
+      zs.className = 'pill peak';
     } else {
-      zs.textContent = '🌙 Fora do horário · 18:00–09:00';
-      zs.className = 'pill closed';
+      zs.textContent = '💰 OFF-PEAK AGORA · 50% OFF';
+      zs.className = 'pill offpeak';
     }
 
     const fw = flashState(zai);
     const zcd = document.getElementById('zai-countdown');
-    if (fw === 'ended') {
-      zcd.innerHTML = 'ℹ️ Campanha GLM-5.3-Flash encerrada em 20/09/2026.';
+    if (zaiIsPeak) {
+      zcd.innerHTML = 'Tarifa de pico agora — o off-peak (−50%) começa às <strong>' + yourTimeIn(zaiFlipMins) + '</strong> no seu horário, em <strong>' + fmtDur(zaiFlipMins) + '</strong>';
     } else if (fw === 'active') {
-      zcd.innerHTML = '🎁 <strong>Promoção ativa</strong> — cota zero no ZCode · termina em <strong>' + fmtDur(minutesUntilFlashChange(zai)) + '</strong>';
+      zcd.innerHTML = '🎁 <strong>Promoção Flash ativa</strong> — cota zero no ZCode; o off-peak (−50%) também está valendo · termina em <strong>' + fmtDur(minutesUntilFlashChange(zai)) + '</strong>';
+    } else if (fw === 'ended') {
+      zcd.innerHTML = 'Off-peak (−50%) ativo — a campanha GLM-5.3-Flash encerrou em 20/09/2026.';
     } else if (fw === 'upcoming') {
-      zcd.innerHTML = '⏳ Campanha começa em <strong>' + fmtDur(minutesUntilFlashChange(zai)) + '</strong> · janela diária 12:00–22:00 no seu horário';
+      zcd.innerHTML = 'Off-peak (−50%) ativo — campanha Flash começa em <strong>' + fmtDur(minutesUntilFlashChange(zai)) + '</strong>';
     } else {
-      zcd.innerHTML = '⏳ Próxima promoção (cota zero) em <strong>' + fmtDur(minutesUntilFlashChange(zai)) + '</strong> · 12:00–22:00 no seu horário';
+      zcd.innerHTML = 'Off-peak (−50%) ativo — tarifa de pico começa às <strong>' + yourTimeIn(zaiFlipMins) + '</strong> no seu horário, em <strong>' + fmtDur(zaiFlipMins) + '</strong>';
     }
 
     const ds = setClock('ds', 8);
@@ -1016,25 +1027,29 @@
     const zaiB = document.getElementById('zai-banner');
     const zaiBadge = document.getElementById('zai-banner-badge');
     const zaiSub = document.getElementById('zai-banner-sub');
-    if (fw === 'ended') {
-      zaiBadge.textContent = 'ℹ️ CAMPANHA ENCERRADA';
-      zaiB.className = 'flag-box off';
-      zaiSub.textContent = 'O ZCode voltou para a cota padrão.';
-    } else if (fw === 'active') {
+    if (fw === 'active') {
       const mins = minutesUntilFlashChange(zai);
       zaiBadge.textContent = '🎁 PROMOÇÃO ATIVA · COTA ZERO';
       zaiB.className = 'flag-box good';
-      zaiSub.innerHTML = 'GLM-5.3-Flash ilimitado no ZCode até <strong>22:00</strong> no seu horário — faltam <strong>' + fmtDur(mins) + '</strong>';
+      zaiSub.innerHTML = 'GLM-5.3-Flash ilimitado no ZCode até <strong>22:00</strong> no seu horário — faltam <strong>' + fmtDur(mins) + '</strong>. O off-peak (−50%) também está ativo.';
+    } else if (zaiIsPeak) {
+      zaiBadge.textContent = '🔥 PICO AGORA · TARIFA PADRÃO';
+      zaiB.className = 'flag-box bad';
+      zaiSub.innerHTML = 'O off-peak (−50%) começa às <strong>' + yourTimeIn(zaiFlipMins) + '</strong> no seu horário — em <strong>' + fmtDur(zaiFlipMins) + '</strong>';
     } else if (fw === 'upcoming') {
       const mins = minutesUntilFlashChange(zai);
-      zaiBadge.textContent = '⏳ CAMPANHA AINDA NÃO COMEÇOU';
-      zaiB.className = 'flag-box off';
-      zaiSub.innerHTML = 'A primeira janela (12:00–22:00 no seu horário) começa em <strong>' + fmtDur(mins) + '</strong>';
-    } else {
+      zaiBadge.textContent = '✅ OFF-PEAK AGORA · 50% OFF';
+      zaiB.className = 'flag-box good';
+      zaiSub.innerHTML = 'Créditos cobrados a 0,5× até <strong>' + yourTimeIn(zaiFlipMins) + '</strong> no seu horário. A campanha Flash começa em <strong>' + fmtDur(mins) + '</strong>';
+    } else if (fw === 'between') {
       const mins = minutesUntilFlashChange(zai);
-      zaiBadge.textContent = '😴 FORA DA PROMOÇÃO · COTA REGULAR';
-      zaiB.className = 'flag-box bad';
-      zaiSub.innerHTML = 'A próxima janela gratuita (12:00–22:00 no seu horário) começa em <strong>' + fmtDur(mins) + '</strong>';
+      zaiBadge.textContent = '✅ OFF-PEAK AGORA · 50% OFF';
+      zaiB.className = 'flag-box good';
+      zaiSub.innerHTML = 'Créditos cobrados a 0,5× até <strong>' + yourTimeIn(zaiFlipMins) + '</strong> no seu horário. A cota zero do Flash começa em <strong>' + fmtDur(mins) + '</strong>';
+    } else {
+      zaiBadge.textContent = '✅ OFF-PEAK AGORA · 50% OFF';
+      zaiB.className = 'flag-box good';
+      zaiSub.innerHTML = 'Créditos cobrados a 0,5× até <strong>' + yourTimeIn(zaiFlipMins) + '</strong> no seu horário. A campanha Flash encerrou, mas o desconto off-peak continua vigente.';
     }
   }
 
