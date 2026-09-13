@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Labs Tracker — Horários e promoções</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --green-bg: rgba(63, 185, 80, 0.15);
+    --amber: #d29922;
+    --amber-bg: rgba(210, 153, 34, 0.15);
+    --zai: #4f6ef7;
+    --ds: #4d6bfe;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1.5rem;
+  }
+
+  .wrap { max-width: 1000px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h1 { font-size: 1.4rem; font-weight: 600; }
+
+  .local-clock {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+
+  #local-time {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tz-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--bg);
+    background: var(--accent);
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+  }
+
+  #local-date { color: var(--muted); font-size: 0.9rem; }
+
+  .banner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .flag-box {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .flag-box.good { background: var(--green-bg); border-color: rgba(63, 185, 80, 0.55); }
+  .flag-box.bad  { background: var(--amber-bg); border-color: rgba(210, 153, 34, 0.55); }
+  .flag-box.off  { background: rgba(139, 148, 158, 0.1); }
+
+  .flag-provider {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  .flag-badge {
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+
+  .flag-box.good .flag-badge { color: var(--green); }
+  .flag-box.bad  .flag-badge { color: var(--amber); }
+  .flag-box.off  .flag-badge { color: var(--muted); }
+
+  .flag-sub { font-size: 0.8rem; color: var(--muted); }
+  .flag-sub strong { color: var(--text); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 520px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border-top: 3px solid var(--accent);
+  }
+
+  .card.zai      { border-top-color: var(--zai); }
+  .card.deepseek { border-top-color: var(--ds); }
+
+  .card-head { margin-bottom: 1.25rem; }
+
+  .card-head h2 {
+    font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .clock {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 2.2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .date { color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+  }
+
+  .pill {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+  }
+
+  .pill.open, .pill.offpeak { background: var(--green-bg); color: var(--green); }
+  .pill.closed, .pill.peak  { background: var(--amber-bg); color: var(--amber); }
+
+  .ahead { color: var(--muted); font-size: 0.8rem; }
+
+  .countdown { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
+  .countdown strong { color: var(--text); }
+
+  .section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 1.25rem 0 0.6rem;
+  }
+
+  ul.promos { list-style: none; display: grid; gap: 0.6rem; }
+
+  ul.promos li {
+    display: flex;
+    gap: 0.7rem;
+    align-items: flex-start;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .badge {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    border-radius: 5px;
+    padding: 0.22rem 0.45rem;
+    margin-top: 0.1rem;
+    white-space: nowrap;
+  }
+
+  .badge.hot     { background: var(--green-bg); color: var(--green); }
+  .badge.info    { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+  .badge.warn    { background: var(--amber-bg); color: var(--amber); }
+  .badge.neutral { background: rgba(139, 148, 158, 0.15); color: var(--muted); }
+
+  li.expired { opacity: 0.55; }
+
+  .local-note {
+    margin-top: 0.9rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    background: rgba(88, 166, 255, 0.08);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 0.6rem 0.8rem;
+  }
+
+  table.rates {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.9rem;
+    font-size: 0.8rem;
+  }
+
+  table.rates th, table.rates td {
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.55rem;
+    text-align: right;
+  }
+
+  table.rates th:first-child, table.rates td:first-child { text-align: left; }
+  table.rates thead th { color: var(--muted); font-weight: 600; }
+  table.rates .off { color: var(--green); font-weight: 600; }
+  table.rates .peak { color: var(--amber); }
+
+  footer {
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.6;
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* --- visual refresh --------------------------------------------------- */
+  :root {
+    --bg: #07111f;
+    --bg-soft: #0b1728;
+    --card: rgba(16, 29, 48, 0.92);
+    --card-raised: #12233a;
+    --border: rgba(149, 177, 209, 0.18);
+    --border-strong: rgba(149, 177, 209, 0.3);
+    --text: #f3f7fb;
+    --muted: #93a6bb;
+    --accent: #7cc7ff;
+    --green: #4ade80;
+    --green-bg: rgba(74, 222, 128, 0.12);
+    --amber: #f7bd54;
+    --amber-bg: rgba(247, 189, 84, 0.13);
+    --zai: #a995ff;
+    --ds: #6ea0ff;
+  }
+
+  html { color-scheme: dark; }
+
+  body {
+    background:
+      radial-gradient(circle at 8% -10%, rgba(110, 160, 255, 0.18), transparent 34rem),
+      radial-gradient(circle at 92% 0%, rgba(169, 149, 255, 0.14), transparent 30rem),
+      var(--bg);
+    padding: clamp(1.25rem, 3vw, 3rem) clamp(1rem, 3vw, 2rem);
+  }
+
+  .wrap { max-width: 1180px; }
+
+  header {
+    align-items: flex-end;
+    border-bottom: 0;
+    margin-bottom: 2.5rem;
+    padding-bottom: 0;
+  }
+
+  .brand { max-width: 720px; }
+
+  .eyebrow,
+  .section-kicker {
+    display: block;
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .eyebrow { margin-bottom: 0.65rem; }
+
+  h1 {
+    font-size: clamp(1.65rem, 3vw, 2.45rem);
+    letter-spacing: -0.04em;
+    line-height: 1.08;
+  }
+
+  .brand p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin-top: 0.8rem;
+    max-width: 58ch;
+  }
+
+  .local-clock {
+    align-items: flex-end;
+    background: rgba(18, 35, 58, 0.72);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 178px;
+    padding: 0.8rem 1rem;
+  }
+
+  .clock-label {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  #local-time {
+    color: var(--text);
+    font-size: 1.65rem;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
+  .tz-tag {
+    align-self: flex-end;
+    background: rgba(124, 199, 255, 0.14);
+    color: var(--accent);
+    font-size: 0.68rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  #local-date { font-size: 0.78rem; }
+
+  .section-block,
+  .providers-section {
+    margin-top: 2.25rem;
+  }
+
+  .section-heading {
+    align-items: flex-end;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .section-heading h2 {
+    font-size: clamp(1.25rem, 2vw, 1.55rem);
+    letter-spacing: -0.025em;
+    margin-top: 0.35rem;
+  }
+
+  .section-heading p {
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    margin-top: 0.35rem;
+  }
+
+  .refresh-note {
+    align-items: center;
+    color: var(--muted);
+    display: inline-flex;
+    flex-shrink: 0;
+    font-size: 0.76rem;
+    gap: 0.45rem;
+    white-space: nowrap;
+  }
+
+  .live-dot {
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.12);
+    display: inline-block;
+    height: 0.48rem;
+    width: 0.48rem;
+  }
+
+  .banner {
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 0;
+  }
+
+  .flag-box {
+    background: var(--card);
+    border-color: var(--border);
+    border-radius: 16px;
+    min-height: 190px;
+    overflow: hidden;
+    padding: 1.2rem 1.25rem;
+    position: relative;
+  }
+
+  .flag-box::before {
+    background: var(--accent);
+    content: "";
+    height: 4px;
+    inset: 0 0 auto;
+    position: absolute;
+  }
+
+  .flag-box.good {
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.16), var(--card) 64%);
+    border-color: rgba(74, 222, 128, 0.42);
+    box-shadow: 0 12px 35px rgba(25, 125, 68, 0.11);
+  }
+
+  .flag-box.good::before { background: var(--green); }
+
+  .flag-box.bad {
+    background: linear-gradient(135deg, rgba(247, 189, 84, 0.16), var(--card) 64%);
+    border-color: rgba(247, 189, 84, 0.42);
+  }
+
+  .flag-box.bad::before { background: var(--amber); }
+
+  .flag-box.off {
+    background: linear-gradient(135deg, rgba(147, 166, 187, 0.12), var(--card) 64%);
+    border-color: var(--border);
+  }
+
+  .flag-provider {
+    color: var(--muted);
+    font-size: 0.68rem;
+  }
+
+  .flag-badge {
+    font-size: clamp(1.1rem, 2vw, 1.35rem);
+    line-height: 1.2;
+    margin-top: auto;
+    padding-top: 1.5rem;
+  }
+
+  .flag-box.good .flag-badge { color: var(--green); }
+  .flag-box.bad .flag-badge { color: var(--amber); }
+  .flag-box.off .flag-badge { color: var(--muted); }
+
+  .flag-sub {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    min-height: 2.5em;
+  }
+
+  .flag-sub strong { color: var(--text); }
+
+  .grid {
+    align-items: start;
+    gap: 1.25rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 1.4rem;
+    position: relative;
+  }
+
+  .card::after {
+    background: linear-gradient(90deg, var(--accent), transparent);
+    content: "";
+    height: 3px;
+    inset: 0 auto auto;
+    opacity: 0.85;
+    position: absolute;
+    width: 100%;
+  }
+
+  .card.zai::after { background: linear-gradient(90deg, var(--zai), transparent); }
+  .card.deepseek::after { background: linear-gradient(90deg, var(--ds), transparent); }
+
+  .card-head {
+    border-bottom: 1px solid var(--border);
+    margin: -0.1rem -0.1rem 1.2rem;
+    padding: 0.25rem 0.1rem 1.15rem;
+  }
+
+  .card-head h2 {
+    align-items: center;
+    display: flex;
+    font-size: 1.25rem;
+    gap: 0.65rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .provider-mark {
+    align-items: center;
+    background: rgba(169, 149, 255, 0.18);
+    border: 1px solid rgba(169, 149, 255, 0.3);
+    border-radius: 10px;
+    color: var(--zai);
+    display: inline-flex;
+    font-size: 0.7rem;
+    font-weight: 900;
+    height: 2rem;
+    justify-content: center;
+    letter-spacing: 0.03em;
+    width: 2rem;
+  }
+
+  .provider-mark.ds {
+    background: rgba(110, 160, 255, 0.16);
+    border-color: rgba(110, 160, 255, 0.32);
+    color: var(--ds);
+  }
+
+  .provider-location {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    margin-left: auto;
+  }
+
+  .clock {
+    color: var(--text);
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    letter-spacing: -0.06em;
+    line-height: 1;
+  }
+
+  .date { font-size: 0.82rem; margin-top: 0.35rem; }
+
+  .meta-row {
+    gap: 0.55rem;
+    margin-top: 1rem;
+  }
+
+  .pill {
+    border: 1px solid transparent;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    padding: 0.35rem 0.6rem;
+  }
+
+  .pill.open,
+  .pill.offpeak {
+    background: var(--green-bg);
+    border-color: rgba(74, 222, 128, 0.25);
+    color: var(--green);
+  }
+
+  .pill.closed,
+  .pill.peak {
+    background: var(--amber-bg);
+    border-color: rgba(247, 189, 84, 0.25);
+    color: var(--amber);
+  }
+
+  .ahead {
+    font-size: 0.76rem;
+    line-height: 1.4;
+  }
+
+  .countdown {
+    background: rgba(124, 199, 255, 0.07);
+    border-left: 2px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    margin-top: 0.95rem;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .section-label {
+    align-items: center;
+    color: var(--text);
+    display: flex;
+    font-size: 0.78rem;
+    gap: 0.55rem;
+    letter-spacing: 0.03em;
+    margin: 1.3rem 0 0.75rem;
+    text-transform: none;
+  }
+
+  .section-label::before {
+    background: var(--accent);
+    border-radius: 999px;
+    content: "";
+    height: 0.45rem;
+    width: 0.45rem;
+  }
+
+  ul.promos { gap: 0.65rem; }
+
+  ul.promos li {
+    align-items: flex-start;
+    background: rgba(255, 255, 255, 0.025);
+    border-color: var(--border);
+    border-radius: 11px;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    padding: 0.8rem 0.85rem;
+  }
+
+  ul.promos li:hover {
+    background: rgba(124, 199, 255, 0.06);
+    border-color: var(--border-strong);
+  }
+
+  .badge {
+    border: 1px solid transparent;
+    font-size: 0.61rem;
+    letter-spacing: 0.06em;
+    padding: 0.27rem 0.42rem;
+  }
+
+  .badge.hot {
+    background: var(--green-bg);
+    border-color: rgba(74, 222, 128, 0.2);
+    color: var(--green);
+  }
+
+  .badge.info {
+    background: rgba(124, 199, 255, 0.12);
+    border-color: rgba(124, 199, 255, 0.2);
+    color: var(--accent);
+  }
+
+  .badge.warn {
+    background: var(--amber-bg);
+    border-color: rgba(247, 189, 84, 0.2);
+    color: var(--amber);
+  }
+
+  .badge.neutral {
+    background: rgba(147, 166, 187, 0.12);
+    border-color: var(--border);
+    color: var(--muted);
+  }
+
+  li.expired {
+    filter: saturate(0.7);
+    opacity: 0.48;
+  }
+
+  .rates-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table.rates {
+    margin-top: 0;
+    min-width: 450px;
+  }
+
+  table.rates th,
+  table.rates td {
+    border-color: var(--border);
+    padding: 0.55rem 0.6rem;
+  }
+
+  table.rates thead th {
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .local-note {
+    background: rgba(169, 149, 255, 0.08);
+    border-left-color: var(--zai);
+    font-size: 0.79rem;
+    line-height: 1.55;
+    margin-top: 1rem;
+  }
+
+  footer {
+    border-top-color: var(--border);
+    margin-top: 2.75rem;
+    padding-top: 1.25rem;
+  }
+
+  footer strong { color: var(--text); }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 700px) {
+    header { align-items: stretch; }
+    .local-clock { align-items: flex-start; width: 100%; }
+    .tz-tag { align-self: flex-start; }
+    .section-heading { align-items: flex-start; flex-direction: column; gap: 0.7rem; }
+    .refresh-note { white-space: normal; }
+  }
+
+  @media (max-width: 520px) {
+    body { padding-left: 0.85rem; padding-right: 0.85rem; }
+    .card { padding: 1.05rem; }
+    .flag-box { min-height: 170px; }
+    .provider-location { font-size: 0.65rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <span class="eyebrow">AI LABS TRACKER</span>
+      <h1>Horários e promoções para labs de IA</h1>
+      <p>Compare as janelas de desconto de cada provedor e saiba imediatamente qual tarifa está valendo no seu horário.</p>
+    </div>
+    <div class="local-clock">
+      <span class="clock-label">Seu horário</span>
+      <span id="local-time">--:--:--</span>
+      <span class="tz-tag">GMT−3</span>
+      <span id="local-date"></span>
+    </div>
+  </header>
+
+  <section class="section-block" aria-labelledby="now-title">
+    <div class="section-heading">
+      <div>
+        <span class="section-kicker">AGORA</span>
+        <h2 id="now-title">O que está valendo no seu horário</h2>
+        <p>O estado abaixo é atualizado em tempo real. Verde indica economia ativa; âmbar indica tarifa de pico ou janela regular.</p>
+      </div>
+      <span class="refresh-note"><span class="live-dot" aria-hidden="true"></span> Atualização ao vivo</span>
+    </div>
+
+    <!-- Your-time discount status -->
+    <div class="banner" aria-label="Status atual dos descontos no seu horário">
+      <div class="flag-box" id="zai-banner">
+        <span class="flag-provider">Z.AI ZCode · seu horário (GMT−3)</span>
+        <span class="flag-badge" id="zai-banner-badge" aria-live="polite">…</span>
+        <span class="flag-sub" id="zai-banner-sub" aria-live="polite"></span>
+      </div>
+      <div class="flag-box" id="ds-banner">
+          <span class="flag-provider">DeepSeek API · seu horário (GMT−3)</span>
+          <span class="flag-badge" id="ds-banner-badge" aria-live="polite">…</span>
+          <span class="flag-sub" id="ds-banner-sub" aria-live="polite"></span>
+      </div>
+    </div>
+  </section>
+
+  <main class="providers-section" aria-labelledby="providers-title">
+    <div class="section-heading">
+      <div>
+        <span class="section-kicker">PROVEDORES</span>
+        <h2 id="providers-title">Detalhes por provedor</h2>
+        <p>Horário local do serviço, próxima mudança de tarifa e campanhas disponíveis em blocos separados.</p>
+      </div>
+    </div>
+
+    <div class="grid">
+
+    <!-- ============ Z.AI ============ -->
+    <section class="card zai">
+      <div class="card-head">
+        <h2><span class="provider-mark">ZA</span> Z.AI <span class="provider-location">Zhipu · Beijing (UTC+8)</span></h2>
+        <div class="clock" id="zai-time">--:--:--</div>
+        <div class="date" id="zai-date"></div>
+        <div class="meta-row">
+          <span class="pill" id="zai-status" aria-live="polite">…</span>
+          <span class="ahead">⏱ 11 h à frente do seu horário</span>
+        </div>
+        <div class="countdown" id="zai-countdown" aria-live="polite"></div>
+      </div>
+
+      <div class="section-label">Campanhas e benefícios</div>
+      <ul class="promos">
+        <li>
+          <span class="badge hot">COTA ZERO</span>
+          <span><strong>Campanha GLM-5.3-Flash</strong> — até <strong>20/09/2026</strong>, todos os dias das 23:00 às 09:00 em Beijing (= <strong>12:00–22:00 no seu horário</strong>): <strong>cota zero e Flash ilimitado via ZCode</strong>; 2× cota via outros agentes. Requer ZCode ≥ 3.10.</span>
+        </li>
+        <li>
+          <span class="badge hot">~58% OFF</span>
+          <span><strong>Planos anuais</strong> — por exemplo, Pro anual por <strong>$288</strong>, contra $691,20 no pagamento mensal.</span>
+        </li>
+        <li>
+          <span class="badge hot">50% OFF</span>
+          <span><strong>Desconto de suporte à migração</strong> para usuários de planos legados — Lite $18→$9 · Pro $72→$36 · Max $160→$80. Assinantes legados também têm cobrança off-peak o dia todo nos fins de semana.</span>
+        </li>
+        <li>
+          <span class="badge info">10% + 10%</span>
+          <span><strong>Programa de convites</strong> — 10% de desconto no primeiro pedido de GLM Coding por link de indicação (janela de 72 h), além de 10% em créditos sobre o primeiro pagamento de cada amigo, sem limite.</span>
+        </li>
+        <li class="expired">
+          <span class="badge neutral">HISTÓRICO</span>
+          <span>Planos legados deixaram de ser vendidos em <strong>30/07/2026</strong> (os existentes foram mantidos). A cota consome 3× no pico para GLM-5.3 e 1,2× para Flash — pico = seg–sex, 14:00–18:00 em Beijing = <strong>03:00–07:00 no seu horário</strong>.</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ============ DeepSeek ============ -->
+    <section class="card deepseek">
+      <div class="card-head">
+        <h2><span class="provider-mark ds">DS</span> DeepSeek <span class="provider-location">Hangzhou · Beijing (UTC+8)</span></h2>
+        <div class="clock" id="ds-time">--:--:--</div>
+        <div class="date" id="ds-date"></div>
+        <div class="meta-row">
+          <span class="pill" id="ds-status" aria-live="polite">…</span>
+          <span class="ahead">⏱ 11 h à frente do seu horário</span>
+        </div>
+        <div class="countdown" id="ds-countdown" aria-live="polite"></div>
+      </div>
+
+      <div class="section-label">Campanhas e benefícios</div>
+      <ul class="promos">
+        <li>
+          <span class="badge hot">50% OFF</span>
+          <span><strong>Preço off-peak</strong> — todas as horas fora dos picos em dias úteis (consulte o status ao vivo acima).</span>
+        </li>
+        <li>
+          <span class="badge hot">FIM DE SEMANA</span>
+          <span><strong>Desconto de fim de semana</strong> — sábado e domingo inteiros cobrados nas tarifas off-peak (desde 23/08/2026).</span>
+        </li>
+        <li>
+          <span class="badge info">CACHE</span>
+          <span><strong>Cache de contexto</strong> — tokens de entrada encontrados no cache são muito mais baratos (por exemplo, $0,003 contra $0,15 por 1 milhão no Flash).</span>
+        </li>
+        <li>
+          <span class="badge warn">PERMANENTE</span>
+          <span><strong>Redução do V4 Pro tornou-se permanente</strong> em ¼ do preço original após o fim da promoção de 75% em 31/05/2026.</span>
+        </li>
+      </ul>
+
+      <div class="section-label">Referência de preços · por 1 milhão de tokens</div>
+      <div class="rates-wrap">
+        <table class="rates">
+          <thead>
+            <tr><th>Modelo / token</th><th>Off-peak (−50%)</th><th>Pico (2×)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Flash · entrada (miss)</td><td class="off">$0.15</td><td class="peak">$0.30</td></tr>
+            <tr><td>Flash · saída</td><td class="off">$0.60</td><td class="peak">$1.20</td></tr>
+            <tr><td>V4 Pro · entrada (miss)</td><td class="off">$0.66</td><td class="peak">$1.32</td></tr>
+            <tr><td>V4 Pro · saída</td><td class="off">$1.98</td><td class="peak">$3.96</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="local-note">
+        💡 <strong>No seu horário (GMT−3):</strong> o pico ocorre de <strong>dom–qui, 22:00–01:00</strong> e de <strong>seg–sex, 03:00–07:00</strong>.
+        Todo o restante tem 50% de desconto — seu período diurno (07:00–22:00) é sempre off-peak, e sábado é totalmente off-peak.
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    ⚠️ Dados das campanhas consultados em <strong>12 de setembro de 2026</strong> em fontes oficiais — confirme os termos atuais antes de contratar:
+    <a href="https://z.ai/subscribe" target="_blank" rel="noopener">z.ai/subscribe</a> ·
+    <a href="https://docs.z.ai/devpack/notice/event-glm-5.3-flash" target="_blank" rel="noopener">campanha Flash</a> ·
+    <a href="https://docs.z.ai/devpack/credit-campaign-rules" target="_blank" rel="noopener">regras de convite</a> ·
+    <a href="https://api-docs.deepseek.com/quick_start/pricing/" target="_blank" rel="noopener">preços do DeepSeek</a>.
+    Picos do DeepSeek (fonte oficial): seg–sex, 09:00–12:00 e 14:00–18:00 em Beijing (UTC+8).
+  </footer>
+</div>
+
+<script>
+  const pad = n => String(n).padStart(2, '0');
+  // Date shifted so its UTC getters read wall-clock time at the given UTC offset
+  const at = h => new Date(Date.now() + h * 3600000);
+
+  const DAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+  function fmtTime(d)  { return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()); }
+  function fmtDate(d)  { return DAYS[d.getUTCDay()] + ', ' + d.getUTCDate() + ' de ' + MONTHS[d.getUTCMonth()]; }
+  function fmtDur(min) {
+    min = Math.max(0, Math.ceil(min));
+    const days = Math.floor(min / 1440);
+    const h = Math.floor((min % 1440) / 60), m = min % 60;
+    if (days > 0) return h > 0 ? days + 'd ' + h + 'h' : days + 'd';
+    return h > 0 ? h + 'h ' + m + 'min' : m + 'min';
+  }
+
+  function setClock(id, offset) {
+    const d = at(offset);
+    document.getElementById(id + '-time').textContent = fmtTime(d);
+    document.getElementById(id + '-date').textContent = fmtDate(d);
+    return d;
+  }
+
+  // Z.AI business hours: Mon–Fri 09:00–18:00 Beijing
+  function zaiBusiness(d) {
+    const day = d.getUTCDay(), h = d.getUTCHours();
+    return day >= 1 && day <= 5 && h >= 9 && h < 18;
+  }
+
+  // DeepSeek peak: Mon–Fri 09:00–12:00 & 14:00–18:00 Beijing (official docs)
+  function dsPeak(d) {
+    const day = d.getUTCDay(), h = d.getUTCHours() + d.getUTCMinutes() / 60;
+    return day >= 1 && day <= 5 && ((h >= 9 && h < 12) || (h >= 14 && h < 18));
+  }
+
+  // GLM-5.3-Flash campaign: Sep 3–20, 2026, daily 23:00–09:00 Beijing.
+  // These timestamps represent Beijing wall-clock time, not the user's timezone.
+  const FLASH_START = Date.UTC(2026, 8, 3, 0, 0);
+  const FLASH_END = Date.UTC(2026, 8, 20, 9, 0);
+
+  function wallTimestamp(d) {
+    return Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      d.getUTCHours(),
+      d.getUTCMinutes(),
+      d.getUTCSeconds(),
+      d.getUTCMilliseconds()
+    );
+  }
+
+  function flashState(d) {
+    const wall = wallTimestamp(d);
+    if (wall < FLASH_START) return 'upcoming';
+    if (wall >= FLASH_END) return 'ended';
+    const h = d.getUTCHours();
+    return h >= 23 || h < 9 ? 'active' : 'between';
+  }
+
+  function minutesUntilFlashChange(d) {
+    const h = d.getUTCHours(), m = d.getUTCMinutes();
+    const state = flashState(d);
+    if (state === 'upcoming') return Math.max(1, Math.ceil((FLASH_START - wallTimestamp(d)) / 60000));
+    if (state === 'ended') return null;
+    if (h >= 23) return (24 - h + 9) * 60 - m;   // to 09:00 next day
+    if (h < 9)   return 9 * 60 - (h * 60 + m);   // to 09:00 today
+    return 23 * 60 - (h * 60 + m);               // to 23:00 tonight
+  }
+
+  // Wall clock (HH:MM) in GMT-3 at which an event `mins` from now happens
+  function yourTimeIn(mins) {
+    const t = new Date(Date.now() + mins * 60000 - 3 * 3600000);
+    return pad(t.getUTCHours()) + ':' + pad(t.getUTCMinutes());
+  }
+
+  function minutesUntilFlip(cn) {
+    const cur = dsPeak(cn);
+    for (let i = 1; i <= 7 * 24 * 60; i++) {
+      if (dsPeak(new Date(cn.getTime() + i * 60000)) !== cur) return i;
+    }
+    return null;
+  }
+
+  function tick() {
+    const you = setClock('local', -3);
+    document.getElementById('local-date').textContent = fmtDate(you);
+
+    const zai = setClock('zai', 8);
+    const zs = document.getElementById('zai-status');
+    if (zaiBusiness(zai)) {
+      zs.textContent = '🟢 Horário comercial · 09:00–18:00';
+      zs.className = 'pill open';
+    } else {
+      zs.textContent = '🌙 Fora do horário · 18:00–09:00';
+      zs.className = 'pill closed';
+    }
+
+    const fw = flashState(zai);
+    const zcd = document.getElementById('zai-countdown');
+    if (fw === 'ended') {
+      zcd.innerHTML = 'ℹ️ Campanha GLM-5.3-Flash encerrada em 20/09/2026.';
+    } else if (fw === 'active') {
+      zcd.innerHTML = '🎁 <strong>Promoção ativa</strong> — cota zero no ZCode · termina em <strong>' + fmtDur(minutesUntilFlashChange(zai)) + '</strong>';
+    } else if (fw === 'upcoming') {
+      zcd.innerHTML = '⏳ Campanha começa em <strong>' + fmtDur(minutesUntilFlashChange(zai)) + '</strong> · janela diária 12:00–22:00 no seu horário';
+    } else {
+      zcd.innerHTML = '⏳ Próxima promoção (cota zero) em <strong>' + fmtDur(minutesUntilFlashChange(zai)) + '</strong> · 12:00–22:00 no seu horário';
+    }
+
+    const ds = setClock('ds', 8);
+    const st = document.getElementById('ds-status');
+    const cd = document.getElementById('ds-countdown');
+    const dsB = document.getElementById('ds-banner');
+    const dsBadge = document.getElementById('ds-banner-badge');
+    const dsSub = document.getElementById('ds-banner-sub');
+    const flipMins = minutesUntilFlip(ds);
+    if (dsPeak(ds)) {
+      st.textContent = '🔥 PICO AGORA · tarifa 2×';
+      st.className = 'pill peak';
+      cd.innerHTML = 'Muda para <strong>off-peak (−50%)</strong> em <strong>' + fmtDur(flipMins) + '</strong>';
+      dsBadge.textContent = '🔥 PICO AGORA · tarifa 2×';
+      dsB.className = 'flag-box bad';
+      dsSub.innerHTML = 'O desconto de 50% começa às <strong>' + yourTimeIn(flipMins) + '</strong> no seu horário — em <strong>' + fmtDur(flipMins) + '</strong>';
+    } else {
+      st.textContent = '💰 OFF-PEAK AGORA · 50% OFF';
+      st.className = 'pill offpeak';
+      cd.innerHTML = 'Janela econômica agora — tarifa de pico começa em <strong>' + fmtDur(flipMins) + '</strong>';
+      dsBadge.textContent = '✅ OFF-PEAK AGORA · 50% OFF';
+      dsB.className = 'flag-box good';
+      dsSub.innerHTML = 'O desconto vai até <strong>' + yourTimeIn(flipMins) + '</strong> no seu horário — faltam <strong>' + fmtDur(flipMins) + '</strong>';
+    }
+
+    const zaiB = document.getElementById('zai-banner');
+    const zaiBadge = document.getElementById('zai-banner-badge');
+    const zaiSub = document.getElementById('zai-banner-sub');
+    if (fw === 'ended') {
+      zaiBadge.textContent = 'ℹ️ CAMPANHA ENCERRADA';
+      zaiB.className = 'flag-box off';
+      zaiSub.textContent = 'O ZCode voltou para a cota padrão.';
+    } else if (fw === 'active') {
+      const mins = minutesUntilFlashChange(zai);
+      zaiBadge.textContent = '🎁 PROMOÇÃO ATIVA · COTA ZERO';
+      zaiB.className = 'flag-box good';
+      zaiSub.innerHTML = 'GLM-5.3-Flash ilimitado no ZCode até <strong>22:00</strong> no seu horário — faltam <strong>' + fmtDur(mins) + '</strong>';
+    } else if (fw === 'upcoming') {
+      const mins = minutesUntilFlashChange(zai);
+      zaiBadge.textContent = '⏳ CAMPANHA AINDA NÃO COMEÇOU';
+      zaiB.className = 'flag-box off';
+      zaiSub.innerHTML = 'A primeira janela (12:00–22:00 no seu horário) começa em <strong>' + fmtDur(mins) + '</strong>';
+    } else {
+      const mins = minutesUntilFlashChange(zai);
+      zaiBadge.textContent = '😴 FORA DA PROMOÇÃO · COTA REGULAR';
+      zaiB.className = 'flag-box bad';
+      zaiSub.innerHTML = 'A próxima janela gratuita (12:00–22:00 no seu horário) começa em <strong>' + fmtDur(mins) + '</strong>';
+    }
+  }
+
+  tick();
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>
